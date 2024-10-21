@@ -3,67 +3,131 @@ from datetime import datetime
 import holidays
 from calendar import monthrange
 
-# Specify the year and month for the timesheet
-year = 2024  # Example year
-month = 7    # Example month
+# Auto update the month and year
+now = datetime.now()
+year = now.year
+month = now.month
 
 # Create a holiday list for Singapore
 sg_holidays = holidays.SG(years=year)
 
-# Get the number of days in the specified month
+# Get the number of days in the current month
 num_days = monthrange(year, month)[1]
 
-path = '/Users/zhaoyan.x/Documents/timesheets/'
-# Load your timesheet Word document
-doc_filename = 'timesheet.docx'  # Change this to the path of your timesheet
+# Path to your timesheet document
+path = "/Users/zhaoyan.x/Documents/Timesheets/"
+doc_filename = "timesheet.docx"  # Adjust if needed
 doc = Document(path + doc_filename)
+
 
 def is_public_holiday(date):
     return date in sg_holidays
 
+
+def set_cell_text(cell, text):
+    cell.text = text
+    for paragraph in cell.paragraphs:
+        paragraph.paragraph_format.space_after = 0  # Remove extra space after text
+
+
 # Process each table that is for time logging
 for table_index, table in enumerate(doc.tables):
-    if table_index not in [1]:  # Assuming the 2nd table is used for time logging
+    if table_index not in [1]:  # Assuming the 2nd table is for time logging
         continue
-    for i, row in enumerate(table.rows):
-        if i >= 2 and i < 30:  # Skip header row and handle only valid dates
-            date_obj_1 = datetime(year, month, i-1)  # Correct the day number
-            weekday_1 = date_obj_1.weekday()
-            
-            date_cell = i
+    rows = table.rows
+    for i, row in enumerate(rows):
+        print(f"Processing row {i}")
+        date = row.cells[0].text
+        if not date:
+            continue
+        # Assuming that the first date starts in row 2
+        if 1 <= i <= num_days:  # Ensure we handle valid dates only
+            row_index_offset = i + 1
+            day_num_1 = i  # Dates start from 1 in the table
+            print(f"Day 1: {day_num_1}")
             start_cell_index_1 = 1
-            end_cell_index_1 = 2
-            start_cell_index_2 = 11
-            end_cell_index_2 = 12
+            end_cell_index_1 = 3
 
-            # Avoid calculating a second date if the day exceeds the number of days in the month
-            if i <= num_days:
-                date_obj_2 = datetime(year, month, i + 14) if i + 14 <= num_days else None
-                weekday_2 = date_obj_2.weekday() if date_obj_2 else None
-            
-            # Set times for the first set of dates
-            if i <= 16:
-                if weekday_1 == 5:  # Saturday
-                    table.rows[date_cell].cells[start_cell_index_1].text = 'Sat'
-                    table.rows[date_cell].cells[end_cell_index_1].text = ''
-                elif weekday_1 == 6:  # Sunday
-                    table.rows[date_cell].cells[start_cell_index_1].text = 'Sun'
-                    table.rows[date_cell].cells[end_cell_index_1].text = ''
+            if day_num_1 <= num_days:
+                date_obj = datetime(year, month, day_num_1)
+                weekday = date_obj.weekday()
+
+            if day_num_1 < 16:
+                # Mark public holidays
+                if is_public_holiday(date_obj):
+                    set_cell_text(
+                        rows[row_index_offset].cells[start_cell_index_1], "PH"
+                    )
+                    set_cell_text(rows[row_index_offset].cells[end_cell_index_1], "PH")
                 else:
-                    table.rows[date_cell].cells[start_cell_index_1].text = '0830' if not is_public_holiday(date_obj_1) else ''
-                    table.rows[date_cell].cells[end_cell_index_1].text = '1800' if weekday_1 < 4 and not is_public_holiday(date_obj_1) else '1730' if weekday_1 == 4 else ''
-            
-            # Set times for the second set of dates if valid
-            if date_obj_2:
-                if weekday_2 == 5:  # Saturday
-                    table.rows[date_cell].cells[start_cell_index_2].text = 'Sat'
-                    table.rows[date_cell].cells[end_cell_index_2].text = ''
-                elif weekday_2 == 6:  # Sunday
-                    table.rows[date_cell].cells[start_cell_index_2].text = 'Sun'
-                    table.rows[date_cell].cells[end_cell_index_2].text = ''
+                    # Set regular work hours based on weekday
+                    if weekday == 5:  # Saturday
+                        set_cell_text(
+                            rows[row_index_offset].cells[start_cell_index_1], "Sat"
+                        )
+                        set_cell_text(
+                            rows[row_index_offset].cells[end_cell_index_1], "Sat"
+                        )
+                    elif weekday == 6:  # Sunday
+                        set_cell_text(
+                            rows[row_index_offset].cells[start_cell_index_1], "Sun"
+                        )
+                        set_cell_text(
+                            rows[row_index_offset].cells[end_cell_index_1], "Sun"
+                        )
+                    else:
+                        # Weekday work hours
+                        set_cell_text(
+                            rows[row_index_offset].cells[start_cell_index_1], "0830"
+                        )
+                        set_cell_text(
+                            rows[row_index_offset].cells[end_cell_index_1],
+                            "1800" if weekday < 4 else "1730",
+                        )
+
+            day_num_2 = i + 15
+            print(f"Day 2: {day_num_2}")
+
+            start_cell_index_2 = 11
+            end_cell_index_2 = 13
+
+            if day_num_2 <= num_days:
+                date_obj = datetime(year, month, day_num_2)
+                weekday = date_obj.weekday()
+
+            if day_num_2 < 32:
+                # Mark public holidays
+                if is_public_holiday(date_obj):
+                    set_cell_text(
+                        rows[row_index_offset].cells[start_cell_index_2], "PH"
+                    )
+                    set_cell_text(rows[row_index_offset].cells[end_cell_index_2], "PH")
                 else:
-                    table.rows[date_cell].cells[start_cell_index_2].text = '0830' if not is_public_holiday(date_obj_2) else ''
-                    table.rows[date_cell].cells[end_cell_index_2].text = '1800' if weekday_2 < 4 and not is_public_holiday(date_obj_2) else '1730' if weekday_2 == 4 else ''
+                    # Set regular work hours based on weekday
+                    if weekday == 5:  # Saturday
+                        set_cell_text(
+                            rows[row_index_offset].cells[start_cell_index_2], "Sat"
+                        )
+                        set_cell_text(
+                            rows[row_index_offset].cells[end_cell_index_2], "Sat"
+                        )
+                    elif weekday == 6:  # Sunday
+                        set_cell_text(
+                            rows[row_index_offset].cells[start_cell_index_2], "Sun"
+                        )
+                        set_cell_text(
+                            rows[row_index_offset].cells[end_cell_index_2], "Sun"
+                        )
+                    else:
+                        # Weekday work hours
+                        set_cell_text(
+                            rows[row_index_offset].cells[start_cell_index_2], "0830"
+                        )
+                        set_cell_text(
+                            rows[row_index_offset].cells[end_cell_index_2],
+                            "1800" if weekday < 4 else "1730",
+                        )
+
 
 # Save the modified document
-doc.save(path + 'modified_' + doc_filename)  # Change this to where you want to save the modified file
+doc.save(path + "modified_" + doc_filename)
